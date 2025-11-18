@@ -1,0 +1,4 @@
+{
+  "instanceId": "i-xxxxxxxxxxxxxxxxx",
+  "snsTopicArn": "arn:aws:sns:ap-northeast-1:xxxxxxxxxxxx:your-sns-topic-name"
+}
