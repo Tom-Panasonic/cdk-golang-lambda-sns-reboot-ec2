@@ -64,6 +64,8 @@ export class CdkGolangLambdaSnsRebootEc2Stack extends cdk.Stack {
         SNS_TOPIC_ARN: snsTopicArn,
       },
       timeout: cdk.Duration.seconds(30),
+      description:
+        "Lambda function to reboot EC2 instance and notify via SNS with Golang And CDK",
     });
 
     // Output the Lambda function name
