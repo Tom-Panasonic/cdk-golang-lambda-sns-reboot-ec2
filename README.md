@@ -6,19 +6,43 @@ AWS CDK (TypeScript) を使用して、Golang Lambda 関数で EC2 インスタ�
 
 - Node.js (v18 以上)
 - Go (v1.21 以上)
+- **Docker** (Lambda 関数のビルドに必要)
 - AWS CLI と AWS 認証情報の設定
 - AWS CDK CLI (`npm install -g aws-cdk`)
 
-## セットアップ
+## 初回セットアップ手順
 
-1. 依存関係のインストール:
+### 1. 依存関係のインストール
 
 ```bash
+# Node.js 依存関係
 npm install
+
+# Go 依存関係
+cd lambda
+go mod tidy
+cd ..
 ```
 
-2. 設定ファイルの作成:
-   `os_version.json` ファイルを作成し、EC2 インスタンス ID と SNS トピック ARN を設定してください。
+### 2. TypeScript のビルド
+
+```bash
+npm run build
+```
+
+### 3. 設定ファイルの作成
+
+`os_version.json` ファイルをプロジェクトルートに作成し、EC2 インスタンス ID と SNS トピック ARN を設定します。
+
+```bash
+# サンプルファイルをコピー
+cp os_version.json.example os_version.json
+
+# 内容を編集
+vi os_version.json
+```
+
+`os_version.json` の例:
 
 ```json
 {
@@ -27,9 +51,29 @@ npm install
 }
 ```
 
-**注意**: `os_version.json` は Git で管理されません。サンプルファイル `os_version.json.example` を参考にしてください。
+**重要**: `os_version.json` は `.gitignore` に含まれており、Git で管理されません。
+
+### 4. CDK のブートストラップ (初回のみ)
+
+AWS アカウントとリージョンで CDK を初めて使用する場合、ブートストラップが必要です。
+
+```bash
+cdk bootstrap --profile pcms-dev
+```
+
+### 5. デプロイ前の確認 (オプション)
+
+生成される CloudFormation テンプレートを確認できます。
+
+```bash
+# cdk.out をクリーンアップしてから synth
+rm -rf cdk.out
+npx cdk synth --profile pcms-dev
+```
 
 ## デプロイ
+
+### 通常のデプロイ
 
 ```bash
 npm run deploy
@@ -39,6 +83,21 @@ npm run deploy
 
 ```bash
 cdk deploy --profile pcms-dev
+```
+
+### トラブルシューティング: ビルドエラーが発生した場合
+
+もし「Uploaded file must be a non-empty zip」エラーが発生した場合:
+
+```bash
+# cdk.out ディレクトリをクリーンアップ
+rm -rf cdk.out
+
+# 再度 synthesize を実行
+npx cdk synth --profile pcms-dev
+
+# デプロイを実行
+npm run deploy
 ```
 
 ## 削除
@@ -51,6 +110,38 @@ npm run destroy
 
 ```bash
 cdk destroy --profile pcms-dev
+```
+
+## 開発時の便利なコマンド
+
+### TypeScript の変更を監視
+
+```bash
+npm run watch
+```
+
+### CDK Diff (変更内容の確認)
+
+```bash
+cdk diff --profile pcms-dev
+```
+
+### Lambda 関数の手動ビルド (デバッグ用)
+
+```bash
+cd lambda
+GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
+```
+
+### Docker を使った手動ビルド
+
+```bash
+docker run --rm \
+  -v "$PWD/lambda:/asset-input:z" \
+  -v "$PWD/test-output:/asset-output:z" \
+  -w /asset-input \
+  public.ecr.aws/sam/build-provided.al2:latest \
+  bash -c "GOOS=linux GOARCH=amd64 go build -o /asset-output/bootstrap main.go"
 ```
 
 ## プロジェクト構造
