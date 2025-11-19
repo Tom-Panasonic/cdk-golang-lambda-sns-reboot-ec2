@@ -43,6 +43,18 @@ export class CdkGolangLambdaSnsRebootEc2Stack extends cdk.Stack {
       })
     );
 
+    // Add CloudWatch Alarms read permissions (for context)
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:DescribeAlarmHistory",
+        ],
+        resources: ["*"],
+      })
+    );
+
     // Create Lambda function
     const rebootLambda = new lambda.Function(this, "RebootEc2LambdaFunction", {
       runtime: lambda.Runtime.PROVIDED_AL2,
@@ -78,6 +90,16 @@ export class CdkGolangLambdaSnsRebootEc2Stack extends cdk.Stack {
     new cdk.CfnOutput(this, "LambdaFunctionArn", {
       value: rebootLambda.functionArn,
       description: "Lambda function ARN",
+    });
+
+    // Grant EventBridge permission to invoke Lambda
+    rebootLambda.grantInvoke(new iam.ServicePrincipal("events.amazonaws.com"));
+
+    // Output message for manual setup
+    new cdk.CfnOutput(this, "ManualSetupInstructions", {
+      value:
+        "EventBridge rule can now be created in Management Console to trigger this Lambda from CloudWatch Alarms",
+      description: "Next steps",
     });
   }
 }
