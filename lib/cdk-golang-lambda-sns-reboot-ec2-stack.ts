@@ -9,13 +9,13 @@ export class CdkGolangLambdaSnsRebootEc2Stack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Load configuration from os_version.json
-    const configPath = path.join(__dirname, "../os_version.json");
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    // os_version.jsonからEC2インスタンスIDとSNSトピックARNを読み込む
+    const config = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "..", "os_version.json"), "utf8")
+    );
     const instanceId = config.instanceId;
     const snsTopicArn = config.snsTopicArn;
-
-    // Create IAM role for Lambda
+    const cloudwatchAlarmName = config.cloudwatchAlarmName; // Create IAM role for Lambda
     const lambdaRole = new iam.Role(this, "LambdaExecutionRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
       managedPolicies: [
@@ -40,18 +40,6 @@ export class CdkGolangLambdaSnsRebootEc2Stack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ["sns:Publish"],
         resources: [snsTopicArn],
-      })
-    );
-
-    // Add CloudWatch Alarms read permissions (for context)
-    lambdaRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          "cloudwatch:DescribeAlarms",
-          "cloudwatch:DescribeAlarmHistory",
-        ],
-        resources: ["*"],
       })
     );
 
@@ -92,13 +80,25 @@ export class CdkGolangLambdaSnsRebootEc2Stack extends cdk.Stack {
       description: "Lambda function ARN",
     });
 
-    // Grant EventBridge permission to invoke Lambda
-    rebootLambda.grantInvoke(new iam.ServicePrincipal("events.amazonaws.com"));
+    // Grant CloudWatch Alarms permission to invoke Lambda directly
+    rebootLambda.addPermission("AllowCloudWatchAlarmsInvoke", {
+      principal: new iam.ServicePrincipal(
+        "lambda.alarms.cloudwatch.amazonaws.com"
+      ),
+      action: "lambda:InvokeFunction",
+      sourceAccount: this.account,
+      sourceArn: `arn:aws:cloudwatch:${this.region}:${this.account}:alarm:${cloudwatchAlarmName}`,
+    });
+
+    // Output the CloudWatch Alarm ARN
+    new cdk.CfnOutput(this, "CloudWatchAlarmArn", {
+      value: `arn:aws:cloudwatch:${this.region}:${this.account}:alarm:${cloudwatchAlarmName}`,
+      description: "CloudWatch Alarm ARN that can trigger this Lambda",
+    });
 
     // Output message for manual setup
     new cdk.CfnOutput(this, "ManualSetupInstructions", {
-      value:
-        "EventBridge rule can now be created in Management Console to trigger this Lambda from CloudWatch Alarms",
+      value: `Lambda is now ready to be triggered by CloudWatch Alarm: ${cloudwatchAlarmName}`,
       description: "Next steps",
     });
   }
